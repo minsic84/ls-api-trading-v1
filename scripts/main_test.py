@@ -1,16 +1,15 @@
 import os
-import win32com.client
-import pythoncom
-from dotenv import load_dotenv
-from src.api.xasession import XASession
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.collectors.req_xaquery import ReqXAQuery
 
-class Main():
+
+class Main:
     def __init__(self):
-        print("클래스 실행")
+        print("Main 클래스 초기화됨")
+
 
 if __name__ == "__main__":
-    # SessionManager 테스트
-    reqxaquery = ReqXAQuery()
-    reqxaquery.acc()
-
+    print("메인 실행")
+    ReqXAQuery()
