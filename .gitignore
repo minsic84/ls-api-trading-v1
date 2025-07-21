@@ -1,0 +1,26 @@
+# 가상환경
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# 환경설정 파일
+.env
+*.log
+
+# IDE 파일
+.vscode/
+.idea/
+*.swp
+
+# OS 파일
+.DS_Store
+Thumbs.db
+
+# 데이터베이스
+*.db
+*.sqlite3
+
+# 임시 파일
+*.tmp
+*.temp
