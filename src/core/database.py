@@ -25,7 +25,7 @@ class MySQLMultiSchemaService:
         # MySQL 연결 기본 설정
         load_dotenv()
 
-        self.mysql_base_config = {
+        self.mysql_base_config = { 
             'host': os.getenv('DB_HOST'),
             'port': int(os.getenv('DB_PORT')),  # port는 정수형
             'user': os.getenv('DB_USER'),       # ✅ DB_USER로 수정

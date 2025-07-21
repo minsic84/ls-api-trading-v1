@@ -1,10 +1,19 @@
 import win32com.client
 import pythoncom
 import time
+import logging
 from datetime import datetime
+from typing import Optional, Dict, Any
+
+# 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class XAQuery:
+    """LS증권 XingAPI 쿼리 처리 클래스"""
+
+    # 이벤트 객체들
     CSPAQ12200_event = None
     CSPAQ12200_ok = False
 
@@ -19,10 +28,34 @@ class XAQuery:
     t1516_event = None
     t1516_ok = False
 
-    def OnReceiveData(self, szCode):
-        print(f"📡 데이터 수신: {szCode}")
+    # 참조할 부모 클래스 (순환참조 방지)
+    _parent_instance = None
 
-        if szCode == "t8425":
+    @classmethod
+    def set_parent(cls, parent):
+        """부모 인스턴스 설정 (Main 클래스 대신)"""
+        cls._parent_instance = parent
+
+    def OnReceiveData(self, szCode: str) -> None:
+        """데이터 수신 이벤트 핸들러"""
+        try:
+            logger.info(f"📡 데이터 수신: {szCode}")
+
+            if szCode == "t8425":
+                self._handle_t8425_data()
+            elif szCode == "t1537":
+                self._handle_t1537_data()
+            elif szCode == "t1516":
+                self._handle_t1516_data()
+            else:
+                logger.warning(f"처리되지 않은 TR 코드: {szCode}")
+
+        except Exception as e:
+            logger.error(f"OnReceiveData 오류 ({szCode}): {e}")
+
+    def _handle_t8425_data(self) -> None:
+        """t8425 테마전체조회 데이터 처리"""
+        try:
             print("✅ t8425 테마전체조회 수신완료!")
 
             cnt = self.GetBlockCount("t8425OutBlock")
@@ -34,77 +67,107 @@ class XAQuery:
                     tmname = self.GetFieldData("t8425OutBlock", "tmname", i)
                     tmcode = self.GetFieldData("t8425OutBlock", "tmcode", i)
 
-                    # 딕셔너리에 저장
-                    if tmcode not in XAQuery.t8425_dict:
-                        XAQuery.t8425_dict[tmcode] = {'테마이름': tmname}
+                    # 딕셔너리에 저장 (안전하게)
+                    if tmcode and tmcode not in XAQuery.t8425_dict:
+                        XAQuery.t8425_dict[tmcode] = {
+                            '테마이름': tmname or '알 수 없음',
+                            '수신시간': datetime.now()
+                        }
 
                     print(f"{i + 1:3d}. {tmname} ({tmcode})")
                 print("=" * 60)
             else:
                 print("❌ 테마 데이터가 없습니다.")
 
-            # 🚨 핵심! 완료 플래그 설정
+            # 완료 플래그 설정
             XAQuery.t8425_ok = True
             print("🎉 t8425 처리 완료!")
 
-        elif szCode == "t1537":
+        except Exception as e:
+            logger.error(f"t8425 데이터 처리 오류: {e}")
+            XAQuery.t8425_ok = True  # 오류라도 플래그 설정
+
+    def _handle_t1537_data(self) -> None:
+        """t1537 테마종목별시세 데이터 처리"""
+        try:
             cnt = self.GetBlockCount("t1537OutBlock1")
+            logger.info(f"t1537 종목 수: {cnt}")
+
             for i in range(cnt):
                 hname = self.GetFieldData("t1537OutBlock1", "hname", i)
                 price = self.GetFieldData("t1537OutBlock1", "price", i)
                 shcode = self.GetFieldData("t1537OutBlock1", "shcode", i)
-                XAQuery.t1537_dict[shcode] = {
-                    'hname': hname,
-                    'price': price
-                }
+
+                if shcode:
+                    XAQuery.t1537_dict[shcode] = {
+                        'hname': hname or '알 수 없음',
+                        'price': price or 0,
+                        '수신시간': datetime.now()
+                    }
+
             XAQuery.t1537_ok = True
 
-        # 업종별종목(코스피,코스닥)
-        elif szCode == "t1516":
+        except Exception as e:
+            logger.error(f"t1537 데이터 처리 오류: {e}")
+            XAQuery.t1537_ok = True
 
+    def _handle_t1516_data(self) -> None:
+        """t1516 업종별종목 데이터 처리"""
+        try:
+            # 헤더 정보
             shcode = self.GetFieldData("t1516OutBlock", "shcode", 0)
             pricejisu = self.GetFieldData("t1516OutBlock", "pricejisu", 0)
-            sign = self.GetFieldData("t1516OutBlock", "sign", 0)
-            change = self.GetFieldData("t1516OutBlock", "change", 0)
-            jdiff = self.GetFieldData("t1516OutBlock", "jdiff", 0)
-            # 보유종목 걧수 확인
+
+            # 종목 데이터
             cnt = self.GetBlockCount("t1516OutBlock1")
+            logger.info(f"t1516 종목 수: {cnt}")
+
             for i in range(cnt):
                 hname = self.GetFieldData("t1516OutBlock1", "hname", i)
                 price = self.GetFieldData("t1516OutBlock1", "price", i)
-                sign = self.GetFieldData("t1516OutBlock1", "sign", i)
-                change = self.GetFieldData("t1516OutBlock1", "change", i)
-                diff = self.GetFieldData("t1516OutBlock1", "diff", i)
+                shcode_item = self.GetFieldData("t1516OutBlock1", "shcode", i)
                 volume = self.GetFieldData("t1516OutBlock1", "volume", i)
-                open_pri = self.GetFieldData("t1516OutBlock1", "open", i)
-                high = self.GetFieldData("t1516OutBlock1", "high", i)
-                low = self.GetFieldData("t1516OutBlock1", "low", i)
-                sojinrate = self.GetFieldData("t1516OutBlock1", "sojinrate", i)
-                beta = self.GetFieldData("t1516OutBlock1", "beta", i)
-                perx = self.GetFieldData("t1516OutBlock1", "perx", i)
-                frgsvolume = self.GetFieldData("t1516OutBlock1", "frgsvolume", i)
-                orgsvolume = self.GetFieldData("t1516OutBlock1", "orgsvolume", i)
-                diff_vol = self.GetFieldData("t1516OutBlock1", "diff_vol", i)
-                shcode = self.GetFieldData("t1516OutBlock1", "shcode", i)
-                total = self.GetFieldData("t1516OutBlock1", "total", i)
-                value = self.GetFieldData("t1516OutBlock1", "value", i)
 
-                # print("종목번호: %s, 종목이름 %s" % (shcode, hname))
-                if shcode in XAQuery.t1537_dict.keys():
-                    XAQuery.t1537_dict[shcode].update({'업종명': '001'})
-                    print(XAQuery.t1537_dict[shcode])
+                # t1537_dict에 업종명 추가 (안전하게)
+                if shcode_item and shcode_item in XAQuery.t1537_dict:
+                    XAQuery.t1537_dict[shcode_item].update({'업종명': '001'})
 
-            # 다음 보유종목이 더 있을 경우 True
-            if self.IsNext is True:
-                Main.search_stock(upcode='001', shcode=shcode, IsNext=self.IsNext)
+            # 다음 데이터 확인
+            if hasattr(self, 'IsNext') and self.IsNext:
+                # 부모 클래스를 통해 안전하게 호출
+                if XAQuery._parent_instance and hasattr(XAQuery._parent_instance, 'search_stock'):
+                    XAQuery._parent_instance.search_stock(upcode='001', shcode=shcode, IsNext=self.IsNext)
             else:
                 XAQuery.t1516_ok = True
 
-    def GetFieldData(self, *args):
-        return "mock_data"  # 실제 구현에서는 진짜 데이터 반환
+        except Exception as e:
+            logger.error(f"t1516 데이터 처리 오류: {e}")
+            XAQuery.t1516_ok = True
 
-    def GetBlockCount(self, *args):
-        return 5  # 테스트용으로 5개 반환
+    def GetFieldData(self, block_name: str, field_name: str, index: int = 0) -> Optional[str]:
+        """필드 데이터 가져오기 (안전한 래퍼)"""
+        try:
+            # 실제 구현에서는 COM 객체 호출
+            return "mock_data"  # 테스트용
+        except Exception as e:
+            logger.error(f"GetFieldData 오류 ({block_name}.{field_name}[{index}]): {e}")
+            return None
 
-    def IsNext(self):
-        return False
+    def GetBlockCount(self, block_name: str) -> int:
+        """블록 개수 가져오기 (안전한 래퍼)"""
+        try:
+            # 실제 구현에서는 COM 객체 호출
+            return 5  # 테스트용
+        except Exception as e:
+            logger.error(f"GetBlockCount 오류 ({block_name}): {e}")
+            return 0
+
+    @property
+    def IsNext(self) -> bool:
+        """다음 데이터 존재 여부"""
+        try:
+            # 실제 구현에서는 COM 객체 속성 확인
+            return False  # 테스트용
+        except Exception as e:
+            logger.error(f"IsNext 확인 오류: {e}")
+            return False
