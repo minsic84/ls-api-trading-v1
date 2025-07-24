@@ -144,66 +144,120 @@ class IntegratedDatabaseManager:
             logger.error(f"테마 정보 저장 실패: {e}")
             return 0
 
+    # def _save_theme_stock_mappings(self, t1537_dict: Dict[str, Dict]) -> int:
+    #     """테마-종목 매핑 저장 (강화된 디버깅)"""
+    #     try:
+    #         if not t1537_dict:
+    #             print("❌ t1537_dict가 비어있음")
+    #             return 0
+    #
+    #         conn = self.db._get_connection('main')
+    #         cursor = conn.cursor()
+    #
+    #         saved_count = 0
+    #         print(f"🔍 처리할 종목 수: {len(t1537_dict)}")
+    #
+    #         # 첫 번째 종목 상세 확인
+    #         first_key = list(t1537_dict.keys())[0]
+    #         first_data = t1537_dict[first_key]
+    #         print(f"🔍 첫 번째 종목 데이터: {first_data}")
+    #
+    #         for stock_code, data in t1537_dict.items():
+    #             try:
+    #                 stock_name = data.get('hname', '알 수 없음')
+    #                 current_price = self._safe_int(data.get('price', 0))
+    #
+    #                 # 🔍 테마 정보 확인
+    #                 tmcode = data.get('tmcode', None)
+    #                 tmname = data.get('tmname', None)
+    #
+    #                 print(f"📊 {stock_code}: tmcode={tmcode}, tmname={tmname}")
+    #
+    #                 if not tmcode:
+    #                     print(f"❌ {stock_code}: tmcode가 없음")
+    #                     continue
+    #
+    #                 query = """
+    #                     INSERT INTO theme_stocks (
+    #                         tmcode, stock_code, stock_name, current_price
+    #                     ) VALUES (%s, %s, %s, %s)
+    #                     ON DUPLICATE KEY UPDATE
+    #                         stock_name = VALUES(stock_name),
+    #                         current_price = VALUES(current_price),
+    #                         updated_at = CURRENT_TIMESTAMP
+    #                 """
+    #
+    #                 cursor.execute(query, (tmcode, stock_code, stock_name, current_price))
+    #                 saved_count += 1
+    #                 print(f"✅ {stock_code} {stock_name} → 테마 {tmcode} 저장")
+    #
+    #             except Exception as e:
+    #                 print(f"❌ {stock_code} 매핑 저장 실패: {e}")
+    #
+    #         conn.commit()
+    #         conn.close()
+    #
+    #         print(f"🎉 총 {saved_count}개 매핑 저장 완료")
+    #         return saved_count
+    #
+    #     except Exception as e:
+    #         print(f"💥 매핑 저장 전체 실패: {e}")
+    #         return 0
+
     def _save_theme_stock_mappings(self, t1537_dict: Dict[str, Dict]) -> int:
-        """테마-종목 매핑 저장"""
+        """테마-종목 매핑 저장 (수정버전)"""
+
+        print(t1537_dict)
+
         try:
             if not t1537_dict:
+                logger.info("데이터가 없습니다")
                 return 0
 
             conn = self.db._get_connection('main')
             cursor = conn.cursor()
 
             saved_count = 0
+
+            # 🔧 간단한 디버깅 출력
+            logger.info(f"처리할 종목 수: {len(t1537_dict)}")
+
             for stock_code, data in t1537_dict.items():
+
                 try:
-                    # 테마명이 리스트로 저장된 경우 처리
-                    theme_names = data.get('테마명', [])
-                    if not isinstance(theme_names, list):
-                        theme_names = [theme_names]
+                    # 간단한 데이터만 저장
+                    stock_name = data.get('hname', '알 수 없음')
+                    current_price = self._safe_int(data.get('price', 0))
 
-                    stock_name = data.get('종목명', '알 수 없음')
-                    current_price = self._safe_int(data.get('현재가', 0))
-                    change_rate = self._safe_float(data.get('등락율', 0.0))
-                    volume = self._safe_int(data.get('누적거래량', 0))
-                    market_cap = self._safe_int(data.get('시가총액', 0))
+                    # 첫 번째 테마 코드 직접 사용
+                    tmcode = data.get('tmcode')
 
-                    # 각 테마별로 매핑 저장
-                    for theme_name in theme_names:
-                        if not theme_name:
-                            continue
+                    # query = """
+                    #     INSERT INTO theme_stocks (
+                    #         tmcode, stock_code, stock_name, current_price
+                    #     ) VALUES (%s, %s, %s, %s)
+                    #     ON DUPLICATE KEY UPDATE
+                    #         stock_name = VALUES(stock_name),
+                    #         current_price = VALUES(current_price),
+                    #         updated_at = CURRENT_TIMESTAMP
+                    # """
+                    query = """
+                        INSERT INTO theme_stocks (
+                            tmcode, stock_code, stock_name, current_price
+                        ) VALUES (%s, %s, %s, %s)
+                    """
 
-                        # 테마코드 찾기
-                        tmcode = self._find_theme_code(cursor, theme_name)
-                        if not tmcode:
-                            continue
-
-                        query = """
-                            INSERT INTO theme_stocks (
-                                tmcode, stock_code, stock_name, current_price,
-                                change_rate, volume, market_cap
-                            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-                            ON DUPLICATE KEY UPDATE
-                                stock_name = VALUES(stock_name),
-                                current_price = VALUES(current_price),
-                                change_rate = VALUES(change_rate),
-                                volume = VALUES(volume),
-                                market_cap = VALUES(market_cap),
-                                updated_at = CURRENT_TIMESTAMP
-                        """
-
-                        cursor.execute(query, (
-                            tmcode, stock_code, stock_name, current_price,
-                            change_rate, volume, market_cap
-                        ))
-                        saved_count += 1
+                    cursor.execute(query, (tmcode, stock_code, stock_name, current_price))
+                    saved_count += 1
+                    logger.info(f"✅ {stock_code} {stock_name} 저장")
 
                 except Exception as e:
                     logger.error(f"매핑 저장 실패 ({stock_code}): {e}")
-                    continue
 
             conn.commit()
             conn.close()
 
+            logger.info(f"✅ 총 {saved_count}개 매핑 저장 완료")
             return saved_count
 
         except Exception as e:
@@ -222,92 +276,80 @@ class IntegratedDatabaseManager:
             return None
 
     def save_daily_data_from_realtime(self, realtime_data: Dict[str, Dict]) -> bool:
-        """실시간 데이터를 일봉 형태로 저장"""
+        """실시간 데이터를 일봉으로 저장 (상세 디버깅)"""
+        print(realtime_data)
         try:
             if not realtime_data:
+                print("❌ realtime_data가 비어있음")
                 return True
-
-            logger.info(f"📈 실시간 데이터 일봉 저장 시작: {len(realtime_data)}개 종목")
 
             today = self.date_calc.get_market_today()
             today_str = today.strftime('%Y%m%d')
 
-            saved_count = 0
-            for stock_code, data in realtime_data.items():
+            print(f"\n🔍 일봉 저장 시작 - 총 {len(realtime_data)}개 종목")
+            print(f"📅 저장 날짜: {today_str}")
+
+            for i, (stock_code, data) in enumerate(realtime_data.items(), 1):
                 try:
-                    # 일봉 데이터 형태로 변환
-                    daily_data = {
+                    print(f"\n📊 [{i}] {stock_code} 데이터 확인:")
+                    print(f"   원본 데이터: {data}")
+
+                    # 데이터 추출
+                    open_price = self._safe_int(data.get('open', 0))
+                    high_price = self._safe_int(data.get('high', 0))
+                    low_price = self._safe_int(data.get('low', 0))
+                    current_price = self._safe_int(data.get('price', 0))
+                    volume = self._safe_int(data.get('volume', 0))
+                    trading_value = self._safe_int(data.get('value', 0))
+                    change_rate = self._safe_int(data.get('diff', 0))
+
+                    # 일봉 데이터 구성
+                    daily_data = [{
                         'date': today_str,
-                        'close_price': self._safe_int(data.get('현재가', 0)),
-                        'open_price': self._safe_int(data.get('시가', 0)),
-                        'high_price': self._safe_int(data.get('고가', 0)),
-                        'low_price': self._safe_int(data.get('저가', 0)),
-                        'volume': self._safe_int(data.get('누적거래량', 0)),
-                        'trading_value': self._safe_int(data.get('누적거래대금', 0)),
-                        'change_rate': self._safe_int(data.get('등락율', 0)),
+                        'open_price': open_price,
+                        'high_price': high_price,
+                        'low_price': low_price,
+                        'close_price': current_price,
+                        'volume': volume,
+                        'trading_value': trading_value,
+                        'prev_day_diff': 0,
+                        'change_rate': change_rate,
                         'data_source': 'realtime_t1537',
                         'created_at': datetime.now()
-                    }
+                    }]
 
-                    # 일봉 데이터 저장
-                    if self.db.save_daily_price_data(stock_code, [daily_data]):
-                        saved_count += 1
+                    print(f"   📝 저장할 일봉 데이터: {daily_data[0]}")
+
+                    # 저장 시도
+                    if self.db.save_daily_price_data(stock_code, daily_data):
+                        print(f"   ✅ {stock_code} 일봉 저장 성공")
+                    else:
+                        print(f"   ❌ {stock_code} 일봉 저장 실패")
 
                 except Exception as e:
-                    logger.error(f"일봉 저장 실패 ({stock_code}): {e}")
-                    continue
+                    print(f"   💥 {stock_code} 처리 중 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
 
-            logger.info(f"✅ 일봉 데이터 저장 완료: {saved_count}/{len(realtime_data)}개")
             return True
 
         except Exception as e:
-            logger.error(f"❌ 일봉 데이터 저장 실패: {e}")
+            print(f"💥 전체 일봉 저장 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def update_missing_data(self, stock_codes: List[str] = None) -> Dict[str, Any]:
-        """누락된 데이터 업데이트"""
-        try:
-            logger.info("🔄 누락 데이터 업데이트 시작")
+        """누락 데이터 무시하고 건너뛰기"""
+        logger.info("⏭️ 누락 데이터 확인 건너뛰기 (당일 데이터만 처리)")
 
-            if not stock_codes:
-                # 활성 종목 조회
-                active_stocks = self.db.get_active_stock_codes()
-                stock_codes = [stock['code'] for stock in active_stocks]
-
-            update_stats = {
-                'total_stocks': len(stock_codes),
-                'updated_stocks': 0,
-                'missing_days_found': 0,
-                'errors': 0
-            }
-
-            for stock_code in stock_codes:
-                try:
-                    # 최신 데이터 날짜 조회
-                    last_date = self.db.get_latest_daily_date(stock_code)
-
-                    if last_date:
-                        # 누락된 거래일 계산
-                        missing_count, missing_dates = self.date_calc.count_missing_trading_days(last_date)
-
-                        if missing_count > 0:
-                            logger.info(f"{stock_code}: {missing_count}일 누락 ({last_date} 이후)")
-                            update_stats['missing_days_found'] += missing_count
-                            # 여기서 실제 데이터 수집 로직 호출 가능
-
-                        update_stats['updated_stocks'] += 1
-
-                except Exception as e:
-                    logger.error(f"종목 업데이트 실패 ({stock_code}): {e}")
-                    update_stats['errors'] += 1
-                    continue
-
-            logger.info(f"✅ 누락 데이터 업데이트 완료: {update_stats}")
-            return update_stats
-
-        except Exception as e:
-            logger.error(f"❌ 누락 데이터 업데이트 실패: {e}")
-            return {}
+        return {
+            'total_stocks': 0,
+            'updated_stocks': 0,
+            'missing_days_found': 0,
+            'errors': 0,
+            'message': '누락 데이터 확인 건너뛰기'
+        }
 
     def get_database_summary(self) -> Dict[str, Any]:
         """데이터베이스 현황 요약"""

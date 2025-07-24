@@ -25,7 +25,7 @@ class MySQLMultiSchemaService:
         # MySQL 연결 기본 설정
         load_dotenv()
 
-        self.mysql_base_config = { 
+        self.mysql_base_config = {
             'host': os.getenv('DB_HOST'),
             'port': int(os.getenv('DB_PORT')),  # port는 정수형
             'user': os.getenv('DB_USER'),       # ✅ DB_USER로 수정
@@ -180,7 +180,14 @@ class MySQLMultiSchemaService:
             conn = self._get_connection('daily')
             cursor = conn.cursor()
 
-            cursor.execute(f"SELECT MAX(date) FROM {table_name} WHERE stock_code = %s", (stock_code,))
+            # 테이블 존재 확인
+            cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
+            if not cursor.fetchone():
+                conn.close()
+                return ""
+
+            # stock_code 조건 제거, date만 조회
+            cursor.execute(f"SELECT MAX(date) FROM {table_name}")
             result = cursor.fetchone()
 
             conn.close()
@@ -394,7 +401,7 @@ class MySQLMultiSchemaService:
 
             # 데이터 삽입
             query = f"""
-                INSERT IGNORE INTO {table_name} (
+                REPLACE INTO {table_name} (
                     date, open_price, high_price, low_price, close_price,
                     volume, trading_value, prev_day_diff, change_rate,
                     data_source, created_at

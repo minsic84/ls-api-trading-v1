@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 class XAQuery:
     """LS증권 XingAPI 쿼리 처리 클래스"""
 
+    current_tmcode = None
+
     # 이벤트 객체들
     CSPAQ12200_event = None
     CSPAQ12200_ok = False
@@ -88,24 +90,51 @@ class XAQuery:
             XAQuery.t8425_ok = True  # 오류라도 플래그 설정
 
     def _handle_t1537_data(self) -> None:
-        """t1537 테마종목별시세 데이터 처리"""
+        """t1537 테마종목별시세 데이터 처리 (디버깅 강화)"""
         try:
+            upcnt = self.GetFieldData("t1537OutBlock", "upcnt", 0)
+            tmcnt = self.GetFieldData("t1537OutBlock", "tmcnt", 0)
+            uprate = self.GetFieldData("t1537OutBlock", "uprate", 0)
+            tmname = self.GetFieldData("t1537OutBlock", "tmname", 0)
+
             cnt = self.GetBlockCount("t1537OutBlock1")
-            logger.info(f"t1537 종목 수: {cnt}")
+            logger.info(f"🔍 t1537 데이터 구조 확인: {cnt}개 종목")
 
-            for i in range(cnt):
-                hname = self.GetFieldData("t1537OutBlock1", "hname", i)
-                price = self.GetFieldData("t1537OutBlock1", "price", i)
-                shcode = self.GetFieldData("t1537OutBlock1", "shcode", i)
+            if cnt > 0:
+                for i in range(cnt):  # 처음 3개만 상세 출력
+                    # 🔍 모든 필드 확인
+                    hname = self.GetFieldData("t1537OutBlock1", "hname", i)
+                    price = self.GetFieldData("t1537OutBlock1", "price", i)
+                    sign = self.GetFieldData("t1537OutBlock1", "sign", i)
+                    change = self.GetFieldData("t1537OutBlock1", "change", i)
+                    diff = self.GetFieldData("t1537OutBlock1", "diff", i)
+                    volume = self.GetFieldData("t1537OutBlock1", "volume", i)
+                    shcode = self.GetFieldData("t1537OutBlock1", "shcode", i)
+                    yeprice = self.GetFieldData("t1537OutBlock1", "yeprice", i)
+                    open_val = self.GetFieldData("t1537OutBlock1", "open", i)
+                    high = self.GetFieldData("t1537OutBlock1", "high", i)
+                    low = self.GetFieldData("t1537OutBlock1", "low", i)
+                    value = self.GetFieldData("t1537OutBlock1", "value", i)
+                    marketcap = self.GetFieldData("t1537OutBlock1", "marketcap", i)
 
-                if shcode:
-                    XAQuery.t1537_dict[shcode] = {
-                        'hname': hname or '알 수 없음',
-                        'price': price or 0,
-                        '수신시간': datetime.now()
-                    }
+                    # 기존 저장 로직
+                    if shcode:
+                        XAQuery.t1537_dict[shcode] = {
+                            'hname': hname,
+                            'price': price,
+                            'open': open_val,
+                            'high': high,
+                            'low': low,
+                            'volume': volume,
+                            'value': value,
+                            'diff': diff,
+                            'marketcap': marketcap,
+                            'tmcode': XAQuery.current_tmcode,
+                            '수신시간': datetime.now()
+                        }
 
             XAQuery.t1537_ok = True
+            print(f"🎉 t1537 처리 완료! 총 {len(XAQuery.t1537_dict)}개 종목")
 
         except Exception as e:
             logger.error(f"t1537 데이터 처리 오류: {e}")

@@ -133,6 +133,8 @@ class ReqXAQuery:
             logger.error(f"테마 데이터 수집 실패: {e}")
             return {}
 
+
+
     def _save_collected_data(self) -> Dict[str, Any]:
         """수집된 데이터를 데이터베이스에 저장"""
         try:
@@ -150,12 +152,13 @@ class ReqXAQuery:
                 logger.info(f"✅ 테마 데이터 저장: {'성공' if theme_saved else '실패'}")
 
             # 2. 일봉 데이터 저장 (실시간 데이터 기반)
-            if XAQuery.t1537_dict:
-                daily_saved = self.db_manager.save_daily_data_from_realtime(
-                    XAQuery.t1537_dict
-                )
-                save_results['daily_data'] = daily_saved
-                logger.info(f"✅ 일봉 데이터 저장: {'성공' if daily_saved else '실패'}")
+            # if XAQuery.t1537_dict:
+            #     daily_saved = self.db_manager.save_daily_data_from_realtime(
+            #         XAQuery.t1537_dict
+            #     )
+            #     save_results['daily_data'] = daily_saved
+            #     logger.info(f"✅ 일봉 데이터 저장: {'성공' if daily_saved else '실패'}")
+            save_results['daily_data'] = True  # 건너뛴 것으로 표시
 
             # 3. 데이터베이스 현황 조회
             db_summary = self.db_manager.get_database_summary()
@@ -257,6 +260,38 @@ class ReqXAQuery:
             logger.error(f"테마전체조회 실행 실패: {e}")
             return False
 
+    # def _process_theme_items(self) -> None:
+    #     """테마별 종목 조회 처리 (1번째, 265번째만)"""
+    #     try:
+    #         if not XAQuery.t8425_dict:
+    #             logger.warning("조회할 테마가 없습니다")
+    #             return
+    #
+    #         theme_list = list(XAQuery.t8425_dict.keys())
+    #         target_indices = [1, 265]  # 1번째, 265번째
+    #
+    #         logger.info(f"📈 총 {len(theme_list)}개 테마 중 1번째, 265번째만 조회")
+    #
+    #         for idx in target_indices:
+    #             # 인덱스 범위 체크 (0부터 시작하므로 idx-1)
+    #             if idx <= len(theme_list):
+    #                 tmcode = theme_list[idx - 1]  # 1번째 = 인덱스 0
+    #                 XAQuery.current_tmcode = tmcode
+    #
+    #                 try:
+    #                     logger.info(f"[{idx}번째] 테마 {tmcode} 조회 중...")
+    #                     self._execute_theme_item_query(tmcode)
+    #                     time.sleep(3.1)  # API 호출 제한 준수
+    #
+    #                 except Exception as e:
+    #                     logger.error(f"테마 {tmcode} 조회 실패: {e}")
+    #                     continue
+    #             else:
+    #                 logger.warning(f"{idx}번째 테마가 없습니다 (총 {len(theme_list)}개)")
+    #
+    #     except Exception as e:
+    #         logger.error(f"테마별 종목 조회 처리 실패: {e}")
+
     def _process_theme_items(self) -> None:
         """테마별 종목 조회 처리"""
         try:
@@ -267,6 +302,12 @@ class ReqXAQuery:
             logger.info(f"📈 {len(XAQuery.t8425_dict)}개 테마의 종목 조회 시작")
 
             for i, tmcode in enumerate(XAQuery.t8425_dict.keys(), 1):
+
+                # if i > 3:
+                #     logger.info("🛑 3개 테마 조회 완료, 중지")
+                #     break
+
+                XAQuery.current_tmcode = tmcode
                 try:
                     logger.info(f"[{i}/{len(XAQuery.t8425_dict)}] 테마 {tmcode} 조회 중...")
                     self._execute_theme_item_query(tmcode)
@@ -278,6 +319,25 @@ class ReqXAQuery:
 
         except Exception as e:
             logger.error(f"테마별 종목 조회 처리 실패: {e}")
+
+    # def _process_theme_items(self) -> None:
+    #     """테스트용: 첫 번째 테마만 조회"""
+    #     try:
+    #         if not XAQuery.t8425_dict:
+    #             logger.warning("조회할 테마가 없습니다")
+    #             return
+    #
+    #         # 🧪 테스트 모드: 첫 번째 테마만 처리
+    #         first_theme_code = list(XAQuery.t8425_dict.keys())[0]
+    #         first_theme_name = XAQuery.t8425_dict[first_theme_code].get('테마이름', '알수없음')
+    #
+    #         logger.info(f"🧪 테스트 모드: {first_theme_name}({first_theme_code}) 테마만 조회")
+    #
+    #         self._execute_theme_item_query(first_theme_code)
+    #         time.sleep(3.1)
+    #
+    #     except Exception as e:
+    #         logger.error(f"테마별 종목 조회 처리 실패: {e}")
 
     def _execute_theme_item_query(self, tmcode: str) -> bool:
         """테마종목별시세조회 실행"""
@@ -335,25 +395,29 @@ class ReqXAQuery:
             return False
 
     def _wait_for_response(self, tr_code: str, flag_name: str, max_timeout: int = 100) -> bool:
-        """응답 대기 (공통 함수)"""
+        """응답 대기 (타임아웃 증가)"""
         try:
-            logger.info(f"⏳ {tr_code} 응답 대기 중...")
+            print(f"⏳ {tr_code} 응답 대기 중...")
 
             timeout = 0
+            # 🔧 t1537은 더 긴 타임아웃 적용
+            if tr_code == 't1537':
+                max_timeout = 200  # 20초로 증가
+
             while not getattr(XAQuery, flag_name) and timeout < max_timeout:
                 pythoncom.PumpWaitingMessages()
                 time.sleep(0.1)
                 timeout += 1
 
             if timeout >= max_timeout:
-                logger.error(f"❌ {tr_code} 응답 타임아웃")
+                print(f"❌ {tr_code} 응답 타임아웃 ({max_timeout / 10}초)")
                 return False
 
-            logger.info(f"✅ {tr_code} 응답 완료")
+            print(f"✅ {tr_code} 응답 완료")
             return True
 
         except Exception as e:
-            logger.error(f"{tr_code} 응답 대기 실패: {e}")
+            print(f"❌ {tr_code} 응답 대기 실패: {e}")
             return False
 
     def get_theme_summary(self) -> Dict[str, Any]:
