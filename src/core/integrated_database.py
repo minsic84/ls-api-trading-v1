@@ -144,65 +144,7 @@ class IntegratedDatabaseManager:
             logger.error(f"테마 정보 저장 실패: {e}")
             return 0
 
-    # def _save_theme_stock_mappings(self, t1537_dict: Dict[str, Dict]) -> int:
-    #     """테마-종목 매핑 저장 (강화된 디버깅)"""
-    #     try:
-    #         if not t1537_dict:
-    #             print("❌ t1537_dict가 비어있음")
-    #             return 0
-    #
-    #         conn = self.db._get_connection('main')
-    #         cursor = conn.cursor()
-    #
-    #         saved_count = 0
-    #         print(f"🔍 처리할 종목 수: {len(t1537_dict)}")
-    #
-    #         # 첫 번째 종목 상세 확인
-    #         first_key = list(t1537_dict.keys())[0]
-    #         first_data = t1537_dict[first_key]
-    #         print(f"🔍 첫 번째 종목 데이터: {first_data}")
-    #
-    #         for stock_code, data in t1537_dict.items():
-    #             try:
-    #                 stock_name = data.get('hname', '알 수 없음')
-    #                 current_price = self._safe_int(data.get('price', 0))
-    #
-    #                 # 🔍 테마 정보 확인
-    #                 tmcode = data.get('tmcode', None)
-    #                 tmname = data.get('tmname', None)
-    #
-    #                 print(f"📊 {stock_code}: tmcode={tmcode}, tmname={tmname}")
-    #
-    #                 if not tmcode:
-    #                     print(f"❌ {stock_code}: tmcode가 없음")
-    #                     continue
-    #
-    #                 query = """
-    #                     INSERT INTO theme_stocks (
-    #                         tmcode, stock_code, stock_name, current_price
-    #                     ) VALUES (%s, %s, %s, %s)
-    #                     ON DUPLICATE KEY UPDATE
-    #                         stock_name = VALUES(stock_name),
-    #                         current_price = VALUES(current_price),
-    #                         updated_at = CURRENT_TIMESTAMP
-    #                 """
-    #
-    #                 cursor.execute(query, (tmcode, stock_code, stock_name, current_price))
-    #                 saved_count += 1
-    #                 print(f"✅ {stock_code} {stock_name} → 테마 {tmcode} 저장")
-    #
-    #             except Exception as e:
-    #                 print(f"❌ {stock_code} 매핑 저장 실패: {e}")
-    #
-    #         conn.commit()
-    #         conn.close()
-    #
-    #         print(f"🎉 총 {saved_count}개 매핑 저장 완료")
-    #         return saved_count
-    #
-    #     except Exception as e:
-    #         print(f"💥 매핑 저장 전체 실패: {e}")
-    #         return 0
+
 
     def _save_theme_stock_mappings(self, t1537_dict: Dict[str, Dict]) -> int:
         """테마-종목 매핑 저장 (수정버전)"""
@@ -232,15 +174,7 @@ class IntegratedDatabaseManager:
                     # 첫 번째 테마 코드 직접 사용
                     tmcode = data.get('tmcode')
 
-                    # query = """
-                    #     INSERT INTO theme_stocks (
-                    #         tmcode, stock_code, stock_name, current_price
-                    #     ) VALUES (%s, %s, %s, %s)
-                    #     ON DUPLICATE KEY UPDATE
-                    #         stock_name = VALUES(stock_name),
-                    #         current_price = VALUES(current_price),
-                    #         updated_at = CURRENT_TIMESTAMP
-                    # """
+
                     query = """
                         INSERT INTO theme_stocks (
                             tmcode, stock_code, stock_name, current_price
